@@ -1,27 +1,30 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from datetime import date
+from uuid import UUID
 
-from app.core.deps import get_current_user
 from app.db.session import get_db
 from app.db.models import Receita, User
 from app.schemas.receita import ReceitaCreate, ReceitaOut
+from app.core.deps import get_current_user
 
-router = APIRouter(prefix="/receitas", tags=["Receitas"])
+router = APIRouter(
+    prefix="/receitas",
+    tags=["Receitas"],
+)
 
 
 @router.post("", response_model=ReceitaOut)
 def create_receita(
-    payload: ReceitaCreate,
+    data: ReceitaCreate,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     receita = Receita(
-        user_id=user.id,
-        descricao=payload.descricao,
-        valor=payload.valor,
-        categoria=payload.categoria,
-        data=payload.data,
+        user_id=current_user.id,
+        descricao=data.descricao,
+        valor=data.valor,
+        categoria=data.categoria,
+        data=data.data,
     )
 
     db.add(receita)
@@ -33,16 +36,55 @@ def create_receita(
 
 @router.get("", response_model=list[ReceitaOut])
 def list_receitas(
-    start_date: date | None = None,
-    end_date: date | None = None,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
-    query = db.query(Receita).filter(Receita.user_id == user.id)
+    return (
+        db.query(Receita)
+        .filter(Receita.user_id == current_user.id)
+        .order_by(Receita.data.desc())
+        .all()
+    )
 
-    if start_date:
-        query = query.filter(Receita.data >= start_date)
-    if end_date:
-        query = query.filter(Receita.data <= end_date)
 
-    return query.order_by(Receita.data.desc()).all()
+@router.get("/{receita_id}", response_model=ReceitaOut)
+def get_receita(
+    receita_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    receita = (
+        db.query(Receita)
+        .filter(
+            Receita.id == receita_id,
+            Receita.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not receita:
+        raise HTTPException(status_code=404, detail="Receita não encontrada")
+
+    return receita
+
+
+@router.delete("/{receita_id}", status_code=204)
+def delete_receita(
+    receita_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    receita = (
+        db.query(Receita)
+        .filter(
+            Receita.id == receita_id,
+            Receita.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not receita:
+        raise HTTPException(status_code=404, detail="Receita não encontrada")
+
+    db.delete(receita)
+    db.commit()

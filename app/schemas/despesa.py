@@ -4,14 +4,14 @@ from decimal import Decimal
 from uuid import UUID
 
 
-class ReceitaCreate(BaseModel):
+class DespesaCreate(BaseModel):
     descricao: str
     valor: Decimal
     categoria: str
     data: date
 
 
-class ReceitaOut(BaseModel):
+class DespesaOut(BaseModel):
     id: UUID
     descricao: str
     valor: Decimal
