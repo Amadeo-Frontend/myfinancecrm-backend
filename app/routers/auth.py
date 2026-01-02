@@ -1,28 +1,75 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.schemas.user import UserCreate, UserLogin, UserOut
 from app.db.session import get_db
-from app.db.models import User
-from app.schemas.user import UserCreate, UserOut
-from app.core.security import get_password_hash
+from app.models.models import User
+from app.core.security import (
+    get_password_hash,
+    verify_password,
+    create_access_token,
+)
 
-router = APIRouter(prefix="/auth", tags=["Auth"])
+router = APIRouter(
+    prefix="/auth",
+    tags=["Auth"],
+)
+
 
 @router.post("/register", response_model=UserOut)
-def register(user: UserCreate, db: Session = Depends(get_db)):
-    exists = db.query(User).filter(User.email == user.email).first()
-    if exists:
-        raise HTTPException(status_code=400, detail="Email já cadastrado")
-
-    new_user = User(
-        name=user.name,
-        email=user.email,
-        password_hash=get_password_hash(user.password),
-        role="user"
+def register(payload: UserCreate, db: Session = Depends(get_db)):
+    existing_user = (
+        db.query(User)
+        .filter(User.email == payload.email)
+        .first()
     )
 
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
+    if existing_user:
+        raise HTTPException(
+            status_code=400,
+            detail="Email já cadastrado"
+        )
 
-    return new_user
+    user = User(
+        name=payload.name,
+        email=payload.email,
+        password_hash=get_password_hash(payload.password),
+        role="user",
+    )
+
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    return user
+
+
+@router.post("/login")
+def login(payload: UserLogin, db: Session = Depends(get_db)):
+    user = (
+        db.query(User)
+        .filter(User.email == payload.email)
+        .first()
+    )
+
+    if not user or not verify_password(
+        payload.password,
+        user.password_hash
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail="Credenciais inválidas"
+        )
+
+    token = create_access_token(
+        {
+            "sub": str(user.id),
+            "email": user.email,
+            "role": user.role,
+        }
+    )
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+    }
