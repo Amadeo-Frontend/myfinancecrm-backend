@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from uuid import UUID
+from datetime import date
 
 from app.db.session import get_db
 from app.db.models import Despesa, User
@@ -38,13 +39,21 @@ def create_despesa(
 def list_despesas(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    inicio: date | None = Query(None),
+    fim: date | None = Query(None),
+    busca: str | None = Query(None),
 ):
-    return (
-        db.query(Despesa)
-        .filter(Despesa.user_id == current_user.id)
-        .order_by(Despesa.data.desc())
-        .all()
-    )
+    query = db.query(Despesa).filter(Despesa.user_id == current_user.id)
+
+    if inicio:
+        query = query.filter(Despesa.data >= inicio)
+    if fim:
+        query = query.filter(Despesa.data <= fim)
+    if busca:
+        pattern = f"%{busca}%"
+        query = query.filter(Despesa.descricao.ilike(pattern))
+
+    return query.order_by(Despesa.data.desc()).all()
 
 
 @router.delete("/{despesa_id}", status_code=204)
