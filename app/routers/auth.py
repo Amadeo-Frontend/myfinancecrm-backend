@@ -1,57 +1,37 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import APIRouter, HTTPException
 from sqlalchemy.orm import Session
+import bcrypt
 
+from app.schemas.auth import LoginRequest
+from app.models.user import User
+from app.core.security import create_access_token
 from app.db.session import get_db
-from app.db.models import User
-from app.schemas.user import UserCreate
-from app.core.security import (
-    hash_password,
-    verify_password,
-    create_access_token,
-)
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
-@router.post("/register")
-def register(payload: UserCreate, db: Session = Depends(get_db)):
-    exists = db.query(User).filter(User.email == payload.email).first()
-    if exists:
-        raise HTTPException(status_code=400, detail="Email já cadastrado")
-
-    user = User(
-        name=payload.name,
-        email=payload.email,
-        password_hash=hash_password(payload.password),
-        role="admin",
-    )
-
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-
-    return {"message": "Usuário criado com sucesso"}
-
-
 @router.post("/login")
-def login(
-    form_data: OAuth2PasswordRequestForm = Depends(),
-    db: Session = Depends(get_db),
-):
-    user = db.query(User).filter(User.email == form_data.username).first()
+def login(payload: LoginRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == payload.email).first()
 
-    if not user or not verify_password(form_data.password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Credenciais inválidas",
-        )
+    if not user:
+        raise HTTPException(status_code=401, detail="Credenciais inválidas")
 
-    access_token = create_access_token(
-        {"sub": str(user.id), "role": user.role}
+    if not bcrypt.checkpw(
+        payload.password.encode(),
+        user.password_hash.encode()
+    ):
+        raise HTTPException(status_code=401, detail="Credenciais inválidas")
+
+    token = create_access_token(
+        {
+            "sub": str(user.id),
+            "email": user.email,
+            "role": user.role,
+        }
     )
 
     return {
-        "access_token": access_token,
+        "access_token": token,
         "token_type": "bearer",
     }
