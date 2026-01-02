@@ -45,3 +45,25 @@ def list_despesas(
         .order_by(Despesa.data.desc())
         .all()
     )
+
+
+@router.delete("/{despesa_id}", status_code=204)
+def delete_despesa(
+    despesa_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    despesa = (
+        db.query(Despesa)
+        .filter(
+            Despesa.id == despesa_id,
+            Despesa.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not despesa:
+        raise HTTPException(status_code=404, detail="Despesa nao encontrada")
+
+    db.delete(despesa)
+    db.commit()
