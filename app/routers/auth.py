@@ -13,35 +13,26 @@ from app.core.security import (
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
-@router.post("/register", response_model=Token)
-def register(payload: UserCreate, db: Session = Depends(get_db)):
-    user_exists = db.query(User).filter(User.email == payload.email).first()
-    if user_exists:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email já cadastrado",
-        )
+@router.post("/register", response_model=UserOut)
+def register(user: UserCreate, db: Session = Depends(get_db)):
+    existing = db.query(User).filter(User.email == user.email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Email já cadastrado")
 
-    user = User(
-        name=payload.name,
-        email=payload.email,
-        password_hash=get_password_hash(payload.password),
+    hashed_password = get_password_hash(user.password)
+
+    new_user = User(
+        name=user.name,
+        email=user.email,
+        password_hash=hashed_password,
         role="user",
     )
 
-    db.add(user)
+    db.add(new_user)
     db.commit()
-    db.refresh(user)
+    db.refresh(new_user)
 
-    access_token = create_access_token(
-        {
-            "sub": str(user.id),
-            "email": user.email,
-            "role": user.role,
-        }
-    )
-
-    return Token(access_token=access_token)
+    return new_user
 
 
 @router.post("/login", response_model=Token)
