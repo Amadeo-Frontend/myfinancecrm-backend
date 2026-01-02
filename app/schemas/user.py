@@ -17,3 +17,8 @@ class UserOut(BaseModel):
     name: str
     email: EmailStr
     role: str
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"

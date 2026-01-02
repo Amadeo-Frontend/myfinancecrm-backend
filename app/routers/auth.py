@@ -3,8 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.db.models import User
-from app.schemas.user import UserCreate, UserLogin
-from app.schemas.auth import Token
+from app.schemas.user import UserCreate, UserLogin, Token
 from app.core.security import (
     get_password_hash,
     verify_password,
@@ -34,8 +33,15 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
 
-    token = create_access_token({"sub": str(user.id)})
-    return {"access_token": token}
+    access_token = create_access_token(
+        {
+            "sub": str(user.id),
+            "email": user.email,
+            "role": user.role,
+        }
+    )
+
+    return Token(access_token=access_token)
 
 
 @router.post("/login", response_model=Token)
@@ -44,9 +50,16 @@ def login(payload: UserLogin, db: Session = Depends(get_db)):
 
     if not user or not verify_password(payload.password, user.password_hash):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email ou senha inválidos",
         )
 
-    token = create_access_token({"sub": str(user.id)})
-    return {"access_token": token}
+    access_token = create_access_token(
+        {
+            "sub": str(user.id),
+            "email": user.email,
+            "role": user.role,
+        }
+    )
+
+    return Token(access_token=access_token)
