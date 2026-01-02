@@ -1,37 +1,31 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-import bcrypt
+from datetime import timedelta
 
-from app.schemas.auth import LoginRequest
-from app.models.user import User
-from app.core.security import create_access_token
 from app.db.session import get_db
+from app.db.models import User
+from app.core.security import (
+    verify_password,
+    get_password_hash,
+    create_access_token,
+)
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
 @router.post("/login")
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == payload.email).first()
+def login(email: str, password: str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == email).first()
 
-    if not user:
-        raise HTTPException(status_code=401, detail="Credenciais inválidas")
+    if not user or not verify_password(password, user.password_hash):
+        raise HTTPException(status_code=422, detail="Email ou senha inválidos")
 
-    if not bcrypt.checkpw(
-        payload.password.encode(),
-        user.password_hash.encode()
-    ):
-        raise HTTPException(status_code=401, detail="Credenciais inválidas")
-
-    token = create_access_token(
-        {
-            "sub": str(user.id),
-            "email": user.email,
-            "role": user.role,
-        }
+    access_token = create_access_token(
+        data={"sub": str(user.id)},
+        expires_delta=timedelta(hours=8),
     )
 
     return {
-        "access_token": token,
+        "access_token": access_token,
         "token_type": "bearer",
     }
