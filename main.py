@@ -29,9 +29,9 @@ app.add_middleware(
     allow_headers=["*"],     # inclui Authorization
 )
 
-app.include_router(auth_router, prefix="/auth", tags=["Auth"])
-app.include_router(dashboard_router, prefix="/dashboard", tags=["Dashboard"])
-app.include_router(receitas_router, prefix="/receitas", tags=["Receitas"])
-app.include_router(despesas_router, prefix="/despesas", tags=["Despesas"])
-app.include_router(me_router, prefix="/me", tags=["Me"])
-app.include_router(health_router, prefix="/health", tags=["Health"])
+app.include_router(auth_router)
+app.include_router(dashboard_router)
+app.include_router(receitas_router)
+app.include_router(despesas_router)
+app.include_router(me_router)
+app.include_router(health_router)

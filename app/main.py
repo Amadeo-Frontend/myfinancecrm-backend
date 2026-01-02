@@ -14,8 +14,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(health.router, prefix="/health", tags=["Health"])
-app.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"])
-app.include_router(receitas.router, prefix="/receitas", tags=["Receitas"])
-app.include_router(despesas.router, prefix="/despesas", tags=["Despesas"])
-app.include_router(me.router, prefix="/me", tags=["Me"])
+app.include_router(health.router)
+app.include_router(dashboard.router)
+app.include_router(receitas.router)
+app.include_router(despesas.router)
+app.include_router(me.router)
