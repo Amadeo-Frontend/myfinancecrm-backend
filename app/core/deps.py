@@ -1,5 +1,5 @@
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 from uuid import UUID
@@ -8,18 +8,21 @@ from app.core.config import settings
 from app.db.session import get_db
 from app.db.models import User
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
-
+# Swagger vai mostrar "Authorize" com campo para colar: Bearer <token>
+bearer_scheme = HTTPBearer(auto_error=False)
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     db: Session = Depends(get_db),
 ) -> User:
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token = credentials.credentials
 
     try:
         payload = jwt.decode(
@@ -27,14 +30,31 @@ def get_current_user(
             settings.JWT_SECRET,
             algorithms=["HS256"],
         )
-        user_id: str = payload.get("sub")
-        if user_id is None:
-            raise credentials_exception
+        user_id: str | None = payload.get("sub")
+        if not user_id:
+            raise JWTError("Missing sub")
     except JWTError:
-        raise credentials_exception
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
-    user = db.query(User).filter(User.id == UUID(user_id)).first()
+    try:
+        uid = UUID(user_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token subject",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user = db.query(User).filter(User.id == uid).first()
     if not user:
-        raise credentials_exception
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     return user

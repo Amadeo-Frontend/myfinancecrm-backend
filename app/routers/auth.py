@@ -11,8 +11,10 @@ from app.core.security import (
     create_access_token,
 )
 
-router = APIRouter(tags=["Auth"])
-
+router = APIRouter(
+    prefix="/auth",
+    tags=["Auth"],
+)
 
 @router.post("/register", response_model=UserOut)
 def register(payload: UserCreate, db: Session = Depends(get_db)):
@@ -41,7 +43,6 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
 
     return user
 
-
 @router.post("/login", response_model=Token)
 def login(payload: UserLogin, db: Session = Depends(get_db)):
     user = (
@@ -67,4 +68,7 @@ def login(payload: UserLogin, db: Session = Depends(get_db)):
         }
     )
 
-    return Token(access_token=token)
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+    }
