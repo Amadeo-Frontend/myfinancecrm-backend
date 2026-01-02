@@ -1,13 +1,21 @@
 from alembic import command
 from alembic.config import Config
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 def run_migrations():
-    alembic_cfg = Config("alembic.ini")
+    try:
+        alembic_cfg = Config("alembic.ini")
 
-    # garante que a URL vem do ENV (Render / Neon)
-    db_url = os.getenv("DATABASE_URL")
-    if db_url:
-        alembic_cfg.set_main_option("sqlalchemy.url", db_url)
+        db_url = os.getenv("DATABASE_URL")
+        if db_url:
+            alembic_cfg.set_main_option("sqlalchemy.url", db_url)
 
-    command.upgrade(alembic_cfg, "head")
+        command.upgrade(alembic_cfg, "head")
+        logger.info("Alembic migrations applied successfully")
+
+    except Exception as e:
+        # 🔥 NUNCA derruba o app no Render
+        logger.error(f"Alembic migration failed: {e}")
