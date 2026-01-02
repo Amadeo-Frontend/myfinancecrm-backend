@@ -20,10 +20,13 @@ def on_startup():
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.CORS_ORIGINS],
+    allow_origins=[
+        "http://localhost:3000",
+        "https://SEU_FRONTEND.vercel.app",
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],     # inclui OPTIONS
+    allow_headers=["*"],     # inclui Authorization
 )
 
 app.include_router(auth_router, prefix="/auth", tags=["Auth"])
